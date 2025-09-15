@@ -5,6 +5,8 @@ Este repositório reúne os arquivos de resultados gerados nos estudos de caso d
 ## Estrutura do repositório
 
 ```
+Códigos/
+  └─ aguardando_definição_com_banca.md
 Resultados/
  ├─ Estudo de Caso 1/
  │   └─ Resultado Final/
@@ -19,8 +21,6 @@ Resultados/
  │   └─ Resultados MPC/
  │       └─ ...
  ├─ ...
-Códigos/
-  └─ aguardando_definição_com_banca.md
 ```
 
 * **Resultados Finais:** os arquivos `.xlsx` em `Resultados/Estudo de Caso N/Resultado Final/` são os dados finais usados nas análises e figuras.
