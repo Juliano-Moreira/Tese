@@ -30,7 +30,8 @@ Resultados/
 ## 📈 Painel de Resultados Interativo
 Você pode explorar, filtrar e comparar as séries diretamente no navegador usando o **Painel de Resultados Interativo**:
 
-👉 **Painel de Resultados Interativo:** [https://juliano-moreira.github.io/Tese/](https://juliano-moreira.github.io/Tese/)
+👉 **Painel de Resultados Interativo:** <a href="https://juliano-moreira.github.io/Tese/" target="_blank">https://juliano-moreira.github.io/Tese/</a>.
+
 
 Recursos do painel:
 * Seleção do *Estudo de Caso* e das execuções (agrupadas por cenário).
