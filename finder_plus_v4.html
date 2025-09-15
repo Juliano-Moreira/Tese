@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Explorador de Resultados (BSS) — Finder+</title>
+
+<!-- libs -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+:root{
+  --bg:#f7f7f9; --card:#ffffff; --ink:#222; --muted:#666;
+  --line:#e7e7ee; --accent:#0a63ff; --accent-ink:#fff;
+  --panel-w: 360px;   /* direita */
+  --left-w:  340px;   /* esquerda */
+  --gap: 14px;
+  --radius: 10px;
+  --fs-0: 12px; --fs-1: 13px; --fs-2: 14px;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 var(--fs-2)/1.35 system-ui,Segoe UI,Roboto,Arial}
+a{color:var(--accent);text-decoration:none}
+h3{margin:0 0 8px 0;font-weight:600}
+small,.muted{color:var(--muted)}
+.btn{background:var(--accent);color:var(--accent-ink);border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+.btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent)}
+.btn.min{padding:4px 8px;font-size:var(--fs-1)}
+.label{font-size:var(--fs-1);color:var(--muted);display:block;margin:2px 0 6px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);box-shadow:0 1px 0 rgba(0,0,0,.03)}
+.padded{padding:12px}
+.toolbar{display:flex; gap:8px; align-items:center; flex-wrap:wrap; padding:10px; border:1px solid var(--line); border-radius:var(--radius); background:var(--card)}
+.toolbar .grow{flex:1}
+select,input[type="text"]{height:34px;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff}
+
+/* layout */
+.shell{
+  height:100%; display:grid; gap:var(--gap);
+  grid-template-columns: var(--left-w) 1fr var(--panel-w);
+  grid-template-rows: 100%;
+  padding:var(--gap);
+}
+.pane{overflow:auto}
+.pane.left{grid-column:1}
+.pane.right{grid-column:3}
+.center{grid-column:2; display:flex; flex-direction:column; gap:var(--gap)}
+#chart{height:560px;background:var(--card);border:1px solid var(--line);border-radius:var(--radius)}
+.legend-small .ec-legend{font-size:11px}
+
+.exec-list{display:flex; flex-direction:column; gap:8px}
+.exec{border:1px solid var(--line); border-radius:8px; padding:8px; background:#fff; display:grid; grid-template-columns: 1fr auto auto; gap:8px; align-items:center}
+.exec small{display:block}
+.exec .meta{font-size:var(--fs-1); color:var(--muted)}
+.exec .plus{border:1px solid var(--line); background:#fff; color:var(--accent); border-radius:8px; padding:6px 9px; cursor:pointer}
+.exec .pill{font-size:11px; padding:3px 6px; border-radius:999px; border:1px solid var(--line); color:#333; background:#f9f9fb}
+
+/* checkboxes */
+.group{border:1px solid var(--line); border-radius:10px; margin-bottom:12px; background:#fff}
+.group .head{display:flex; gap:10px; align-items:center; justify-content:space-between; padding:10px 12px; border-bottom:1px solid var(--line)}
+.group .head .title{font-weight:600}
+.group .head .actions{display:flex; gap:8px; align-items:center}
+.group .body{padding:10px 12px}
+.fields{
+  display:grid; grid-template-columns: repeat(3, minmax(0,1fr));
+  gap:6px 12px; align-items:center; font-size:var(--fs-1); max-height:280px; overflow:auto;
+}
+.fields label{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.fields input{margin-right:6px}
+.filter{width:100%; margin-bottom:8px}
+
+/* colapsar */
+.collapser{position:sticky; top:8px; z-index:10; display:flex; gap:6px; justify-content:flex-end}
+.toggle{
+  background:#fff;border:1px solid var(--line); padding:6px 8px; border-radius:8px;
+  cursor:pointer; color:var(--muted)
+}
+.shell.collapse-right{ grid-template-columns: var(--left-w) 1fr 0 }
+.shell.collapse-left { grid-template-columns: 0 1fr var(--panel-w) }
+.reopen{ position:fixed; top:12px; z-index:50; display:none }
+.reopen.right{ right:12px }
+.reopen.left{ left:12px }
+.shell.collapse-right + .reopen.right{ display:block }
+.shell.collapse-left  + .reopen.right + .reopen.left{ display:block }
+
+@media (max-width: 1280px){
+  #chart{height:520px}
+  .fields{grid-template-columns: repeat(2, minmax(0,1fr))}
+}
+@media (max-width: 1024px){
+  .shell{ grid-template-columns: 0 1fr var(--panel-w) } /* esconde o esquerdo por padrão */
+  .reopen.left{display:block}
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ESQUERDA -->
+  <aside class="pane left card">
+    <div class="collapser"><button id="btn-collapse-left" class="toggle">⟨ esconder</button></div>
+    <div class="padded">
+      <label class="label">Estudo de Caso</label>
+      <select id="case-select"></select>
+      <div style="height:8px"></div>
+      <div class="muted small">Execuções disponíveis</div>
+      <div id="exec-list" class="exec-list"></div>
+      <div class="muted" style="margin-top:8px;font-size:12px">Clique em <strong>+</strong> para adicionar a execução ao gráfico. Os arquivos são lidos diretamente do repositório (GitHub Pages).</div>
+    </div>
+  </aside>
+
+  <!-- CENTRO -->
+  <main class="center">
+    <div class="toolbar">
+      <div class="grow">
+        <label class="label">Eixo X inferior</label>
+        <select id="x-lower">
+          <option value="period" selected>period (1…96)</option>
+        </select>
+      </div>
+      <label class="small"><input type="checkbox" id="show-hour" checked> Mostrar eixo X superior (Hora 0:00…23:45)</label>
+      <button id="btn-update" class="btn">Atualizar</button>
+      <button id="btn-clear" class="btn ghost">Limpar</button>
+      <button id="btn-collapse-right" class="toggle">esconder ⟩</button>
+    </div>
+    <div id="chart"></div>
+  </main>
+
+  <!-- DIREITA -->
+  <aside class="pane right card" id="right-pane">
+    <div class="collapser"><button id="btn-collapse-right-inner" class="toggle">esconder ⟩</button></div>
+    <div class="padded">
+      <div class="toolbar" style="border:none;padding:0;margin-bottom:6px">
+        <div><strong>Séries do gráfico</strong> <span class="muted small">— marque/desmarque para exibir</span></div>
+      </div>
+      <div id="series-panel"></div>
+    </div>
+  </aside>
+</div>
+
+<!-- reabrir -->
+<div id="reopen-right" class="reopen right"><button class="toggle">mostrar séries</button></div>
+<div id="reopen-left"  class="reopen left"><button class="toggle">mostrar painel</button></div>
+
+<script>
+// ======= util =======
+const $ = sel => document.querySelector(sel);
+const $$ = sel => Array.from(document.querySelectorAll(sel));
+const HOURS_96 = [
+ '00:00','00:15','00:30','00:45','01:00','01:15','01:30','01:45','02:00','02:15','02:30','02:45',
+ '03:00','03:15','03:30','03:45','04:00','04:15','04:30','04:45','05:00','05:15','05:30','05:45',
+ '06:00','06:15','06:30','06:45','07:00','07:15','07:30','07:45','08:00','08:15','08:30','08:45',
+ '09:00','09:15','09:30','09:45','10:00','10:15','10:30','10:45','11:00','11:15','11:30','11:45',
+ '12:00','12:15','12:30','12:45','13:00','13:15','13:30','13:45','14:00','14:15','14:30','14:45',
+ '15:00','15:15','15:30','15:45','16:00','16:15','16:30','16:45','17:00','17:15','17:30','17:45',
+ '18:00','18:15','18:30','18:45','19:00','19:15','19:30','19:45','20:00','20:15','20:30','20:45',
+ '21:00','21:15','21:30','21:45','22:00','22:15','22:30','22:45','23:00','23:15','23:30','23:45'
+];
+const RIGHT_AXIS_REGEX = /^(Cost_|Revenue_|total_cost)/i; // eixo Y direito (R$)
+const DEFAULT_BUNDLE = ['E_virtual','e_Resultant','Cost_Period_Total'];
+
+const shell = document.querySelector('.shell');
+$('#btn-collapse-right').onclick = ()=> shell.classList.toggle('collapse-right');
+$('#btn-collapse-right-inner').onclick = ()=> shell.classList.toggle('collapse-right');
+$('#reopen-right').onclick = ()=> shell.classList.remove('collapse-right');
+$('#btn-collapse-left').onclick = ()=> shell.classList.toggle('collapse-left');
+$('#reopen-left').onclick = ()=> shell.classList.remove('collapse-left');
+
+// ======= estado =======
+let INDEX = null;
+let CASES = [];
+let CUR_CASE = null;
+let GROUPS = [];
+const CACHE = new Map();
+
+// ======= parsing do nome =======
+function parseMetaFromName(name){
+  // aceita algoritmos com sublinhado: (.+?) até "_DF_"
+  const m = name.match(/^ID(\d+?)_(.+?)_DF_P([01])_RD([01])(?:_G(\d+))?(?:_[\d]+)?\.xlsx$/i);
+  let id='?', algKey='', P=null, RD=null, G=null;
+  if(m){ id=m[1]; algKey=m[2]; P=+m[3]; RD=+m[4]; G=m[5]?+m[5]:null; }
+  const key = (algKey||'').toUpperCase();
+  const map = {
+    'MOEAD_H':'MOEA/D-H', 'MOEAD_C':'MOEA/D-C',
+    'NSGA2_PY':'NSGA-II (PY)', 'MACO_PY':'MACO (PY)',
+    'MOEAD_PY':'MOEA/D (PY)', 'NSPSO_PY':'NSPSO (PY)',
+    'PLIM':'PLIM'
+  };
+  const alg = map[key] || algKey || '?';
+  const pstr = P===1?'P1 — Preditivo-Otimizado': (P===0?'P0 — Reativo-Otimizado':'P?');
+  const rdstr = RD===1?'✔ RD': (RD===0?'✖ RD':'RD?');
+  const gstr = (G!==null && G!==undefined)?` — G${G}`:'';
+  const short = `ID${id} — ${alg} — ${pstr} — ${rdstr}${gstr}`;
+  return {id, alg, P, RD, G, short};
+}
+
+function groupByCase(files){
+  const map = new Map();
+  files.forEach(f=>{
+    const parts = f.relpath.split('/');
+    const caseKey = parts[1]; // "Estudo de Caso X"
+    if(!map.has(caseKey)) map.set(caseKey, []);
+    map.get(caseKey).push(f);
+  });
+  return map;
+}
+
+function toNumber(v){ const n=+v; return Number.isFinite(n)?n:null; }
+
+// ======= carregar índice =======
+async function loadIndex(){
+  const res = await fetch('index.json');
+  if(!res.ok) throw new Error('index.json não encontrado');
+  const j = await res.json();
+  INDEX = j;
+  const byCase = groupByCase(INDEX.files||[]);
+  CASES = Array.from(byCase.keys()).sort((a,b)=>{
+    const na=+(a.match(/\d+/)?.[0]||0), nb=+(b.match(/\d+/)?.[0]||0); return na-nb;
+  });
+  hydrateCaseSelect();
+}
+
+function hydrateCaseSelect(){
+  const sel = $('#case-select');
+  sel.innerHTML = CASES.map(c=>`<option>${c}</option>`).join('');
+  CUR_CASE = CASES[0] || null;
+  sel.value = CUR_CASE || '';
+  sel.onchange = ()=>{ CUR_CASE = sel.value; renderExecList(); };
+  renderExecList();
+}
+
+function renderExecList(){
+  const list = $('#exec-list');
+  list.innerHTML = '';
+  const files = (INDEX.files||[]).filter(f=>f.relpath.includes(`Resultados/${CUR_CASE}/Resultado Final/`));
+  files.sort((a,b)=> a.name.localeCompare(b.name));
+  files.forEach(f=>{
+    const meta = parseMetaFromName(f.name);
+    const div = document.createElement('div');
+    div.className = 'exec';
+    div.innerHTML = `
+      <div>
+        <div><strong>${meta.id} — ${meta.alg}</strong></div>
+        <small class="meta">${meta.P===1?'P1 — Preditivo':'P0 — Reativo'} — ${meta.RD? '✔ RD':'✖ RD'} ${meta.G?('— G'+meta.G):''}</small>
+      </div>
+      <a class="pill" href="${f.url}" target="_blank" title="Abrir .xlsx">xlsx</a>
+      <button class="plus" title="Adicionar ao gráfico">＋</button>
+    `;
+    div.querySelector('.plus').onclick = ()=> addExecution(f, meta);
+    list.appendChild(div);
+  });
+}
+
+// ======= XLSX =======
+async function loadXlsx(url){
+  if(CACHE.has(url)) return CACHE.get(url);
+  const ab = await (await fetch(url)).arrayBuffer();
+  const wb = XLSX.read(ab, {type:'array'});
+  const sh = wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(sh, {header:1, defval:null});
+  if(!rows.length) return {};
+  const header = rows[0].map(h=> (h??'').toString());
+  const table = {}; header.forEach(h=> table[h]=[]);
+  for(let r=1;r<rows.length;r++){
+    const row = rows[r];
+    header.forEach((h,i)=>{
+      const v = row[i];
+      if(h==='Hora') table[h].push(v==null?null:String(v));
+      else table[h].push(toNumber(v));
+    });
+  }
+  CACHE.set(url, table);
+  return table;
+}
+
+// ======= UI direita =======
+function addExecution(file, meta){
+  loadXlsx(file.url).then(table=>{
+    const id = Math.random().toString(36).slice(2,9);
+    const shortLabel = meta.short || `${meta.id?('ID'+meta.id):'ID?'} — ${meta.alg||'?'}`
+    const defaults = DEFAULT_BUNDLE.filter(c=> table[c]);
+    const group = { id, file, meta, shortLabel, data: table, columnsSelected: defaults.slice() };
+    GROUPS.push(group);
+    renderSeriesPanel();
+    updateChart();
+  }).catch(err=> alert('Erro ao carregar XLSX: '+err.message));
+}
+
+function renderSeriesPanel(){
+  const panel = $('#series-panel');
+  panel.innerHTML = '';
+  if(!GROUPS.length){ panel.innerHTML = '<div class="muted">Nenhuma execução adicionada ainda.</div>'; return; }
+  GROUPS.forEach(g=>{
+    const div = document.createElement('div'); div.className = 'group';
+    const cols = Object.keys(g.data||{});
+    const sorted = cols.slice().sort((a,b)=>{
+      const pa = /^(E_|e_|P_|Cost_|Revenue_|total_cost|Hora|period)/.test(a)?0:1;
+      const pb = /^(E_|e_|P_|Cost_|Revenue_|total_cost|Hora|period)/.test(b)?0:1;
+      if(pa!==pb) return pa-pb; return a.localeCompare(b);
+    });
+    div.innerHTML = `
+      <div class="head">
+        <div class="title">${g.shortLabel}</div>
+        <div class="actions">
+          <input type="text" class="filter" placeholder="filtrar colunas…" style="width:200px">
+          <button class="btn min ghost selall">Selecionar todas</button>
+          <button class="btn min ghost clear">Limpar</button>
+          <button class="btn min" style="background:#ef4444" title="Remover este conjunto">Remover</button>
+        </div>
+      </div>
+      <div class="body">
+        <div class="fields"></div>
+        <div class="muted tiny" style="margin-top:8px">Dica: a legenda exibe <em>Arquivo — Coluna</em>.</div>
+      </div>
+    `;
+    const fields = div.querySelector('.fields');
+    const renderChecks = (filter='')=>{
+      fields.innerHTML = '';
+      sorted.forEach(c=>{
+        if(c==='period' || c==='Hora') return;
+        if(filter && !c.toLowerCase().includes(filter.toLowerCase())) return;
+        const idc = `chk_${g.id}_${c}`;
+        const checked = g.columnsSelected.includes(c);
+        const lab = document.createElement('label');
+        lab.innerHTML = `<input type="checkbox" id="${idc}" ${checked?'checked':''}/> ${c}`;
+        lab.querySelector('input').onchange = (ev)=>{
+          if(ev.target.checked){ if(!g.columnsSelected.includes(c)) g.columnsSelected.push(c); }
+          else g.columnsSelected = g.columnsSelected.filter(x=>x!==c);
+          updateChart();
+        };
+        fields.appendChild(lab);
+      });
+    };
+    renderChecks();
+
+    div.querySelector('.selall').onclick = ()=>{ g.columnsSelected = sorted.filter(c=>c!=='period' && c!=='Hora'); renderChecks(); updateChart(); };
+    div.querySelector('.clear').onclick  = ()=>{ g.columnsSelected = []; renderChecks(); updateChart(); };
+    div.querySelector('.btn[title="Remover este conjunto"]').onclick = ()=>{
+      GROUPS = GROUPS.filter(x=> x.id!==g.id);
+      renderSeriesPanel(); updateChart();
+    };
+    div.querySelector('.filter').oninput = (e)=> renderChecks(e.target.value);
+
+    panel.appendChild(div);
+  });
+}
+
+// ======= ECharts =======
+const chart = echarts.init(document.getElementById('chart'), null, {renderer:'canvas'});
+window.addEventListener('resize', ()=> chart.resize());
+
+function extractHours(table){
+  if (!table) return HOURS_96;
+  const col = table['Hora'] || table['hora'] || null;
+  if (col && Array.isArray(col) && col.length >= 96) return col.slice(0,96);
+  return HOURS_96;
+}
+
+function buildOption({ seriesDefs, showTopHour=true, hoursVec=HOURS_96 }){
+  const xPeriod = {
+    type: 'category',
+    data: Array.from({length:96}, (_,i)=> i+1 ),
+    axisLabel: { color:'#444', fontSize:11, interval:3 },
+    axisTick: { alignWithLabel:true },
+    name: 'period', nameLocation:'middle', nameGap:28, nameTextStyle:{color:'#555'}
+  };
+  const xHour = {
+    type: 'category', position:'top', data: hoursVec,
+    axisLabel: { color:'#444', fontSize:11, rotate:-45, interval: 3, margin: 8 },
+    axisTick: { show:false }, splitLine:{show:false}, show:!!showTopHour
+  };
+  const yLeft  = {
+    type:'value', name:'kWh / kW / contagem',
+    nameLocation:'middle', nameRotate:90, nameGap:42,
+    nameTextStyle:{color:'#555'}, axisLabel:{color:'#444',fontSize:11},
+    splitLine:{lineStyle:{color:'#eee'}}
+  };
+  const yRight = {
+    type:'value', name:'R$',
+    nameLocation:'middle', nameRotate:90, nameGap:42,
+    nameTextStyle:{color:'#555'}, axisLabel:{color:'#444',fontSize:11},
+    splitLine:{show:false}
+  };
+
+  const series = seriesDefs.map(s=>({
+    name: s.legend, type:'line', smooth:false, showSymbol:false, sampling:'lttb',
+    xAxisIndex: 0, yAxisIndex: s.right?1:0,
+    data: s.data, // vetor simples (96 pontos)
+    lineStyle:{ width: s.width ?? (s.right?2.2:1.6) }
+  }));
+
+  return {
+    grid:{ left:70, right:70, top:90, bottom:60, containLabel:true },
+    tooltip:{ trigger:'axis', axisPointer:{ type:'cross' } },
+    axisPointer:{ link:[{xAxisIndex:[0,1]}] },
+    legend:{ type:'scroll', bottom:10, textStyle:{fontSize:11,color:'#333'} },
+    xAxis:[xPeriod,xHour],
+    yAxis:[yLeft,yRight],
+    series
+  };
+}
+
+function updateChart(){
+  const showHour = $('#show-hour').checked;
+  const allSeries = [];
+  let hoursRef = HOURS_96;
+
+  GROUPS.forEach(g=>{
+    hoursRef = extractHours(g.data) || hoursRef;
+    (g.columnsSelected||[]).forEach(col=>{
+      const vec = g.data[col];
+      if(!Array.isArray(vec)) return;
+      allSeries.push({
+        legend: `${g.shortLabel} — ${col}`,
+        col, right: RIGHT_AXIS_REGEX.test(col),
+        data: vec
+      });
+    });
+  });
+
+  const opt = buildOption({ seriesDefs: allSeries, showTopHour: showHour, hoursVec: hoursRef });
+  chart.setOption(opt, true);
+}
+
+$('#btn-update').onclick = updateChart;
+$('#btn-clear').onclick  = ()=>{ GROUPS = []; renderSeriesPanel(); updateChart(); };
+
+// ======= boot =======
+loadIndex().catch(err=>{
+  $('#exec-list').innerHTML = `<div class="muted">Erro ao carregar o índice.<br><small>${err.message}</small></div>`;
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Explorador de Resultados (BSS) — Finder Plus</title>
+
+<script src="https://cdn.plot.ly/plotly-2.32.0.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<style>
+  :root{
+    --bg:#f7f7fb;
+    --panel:#ffffff;
+    --muted:#6b7280;
+    --text:#1f2937;
+    --accent:#2563eb;
+    --border:#e5e7eb;
+    --chip:#eef2ff;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.35 "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  .app{
+    display:grid;
+    grid-template-columns: 320px 1fr 360px;
+    gap:12px; padding:12px;
+    height:100%;
+    box-sizing:border-box;
+  }
+  .app.left-collapsed{ grid-template-columns: 0 1fr 360px; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+    overflow:hidden; display:flex; flex-direction:column;
+    min-height:0;
+  }
+  .card .head{
+    padding:10px 12px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .card .head h3{margin:0; font-size:15px}
+  .btn{
+    background:#fff; border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; cursor:pointer; color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent) }
+  .btn.ghost{ background:transparent }
+  .btn.small{ padding:4px 8px; font-size:12px }
+  .muted{ color:var(--muted) }
+  .scroll{ overflow:auto }
+  .left, .right{ min-width:0 }
+  .left.collapsed{ display:none }
+
+  .grid-row{ padding:10px 12px; border-bottom:1px solid var(--border) }
+  .grid-row:last-child{ border-bottom:none }
+  select, input[type="text"]{
+    width:100%; padding:8px 10px; border:1px solid var(--border);
+    border-radius:8px; background:#fff; color:var(--text);
+  }
+  /* lista de execuções */
+  .run{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff;
+  }
+  .run + .run{ margin-top:8px }
+  .run .title{ font-weight:700; font-size:15px }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px }
+  .chip{
+    background:var(--chip); border:1px solid #c7d2fe; color:#374151;
+    padding:2px 6px; border-radius:999px; font-size:12px
+  }
+  .run .actions{ display:flex; gap:6px }
+  .add{ background:#10b981; color:#fff; border-color:#10b981 }
+
+  /* séries por execução (direita) */
+  .right{ --panel-scale:1; font-size: calc(14px * var(--panel-scale)); }
+  .series-block{ border-top:1px dashed var(--border); padding-top:10px; margin-top:10px }
+  .series-head{
+    display:grid; grid-template-columns: 1fr 140px; gap:8px; align-items:center; margin-bottom:8px;
+  }
+  .series-head .id{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap }
+  .series-list{
+    display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:6px 14px; max-height:240px; overflow:auto; padding-right:6px
+  }
+  .series-item{ display:flex; align-items:center; gap:8px; white-space:nowrap }
+  .series-item input{ transform:translateY(1px) }
+  .legend-help{
+    display:inline-flex; align-items:center; gap:6px; cursor:pointer; color:var(--accent);
+    font-size:12px; padding:2px 6px; border-radius:6px; background:#eef2ff; border:1px solid #c7d2fe;
+  }
+  .help-box{ display:none; padding:10px; background:#f9fafb; border:1px solid var(--border); border-radius:8px; margin-top:8px }
+  .help-box.show{ display:block }
+  .collapse-btn{ border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:12px }
+  #showLeft{
+    position:fixed; left:10px; top:10px; z-index:10; display:none;
+    background:#111827; color:#fff; border:0; border-radius:8px; padding:6px 10px; cursor:pointer;
+  }
+  #plot{ width:100%; height:100% }
+  .plot-wrap{ padding:10px }
+  .plot-top{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border)
+  }
+  .grow{ flex:1 }
+
+  /* abaixo do gráfico */
+  .plot-below{ padding:0 12px 12px; display:flex; flex-direction:column; gap:10px; }
+  .subpanel{
+    border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px 12px;
+  }
+  .subpanel details>summary{ cursor:pointer }
+  .help-pre{ white-space:pre-wrap; font-size:.9em; margin:.5rem 0 0 }
+  #bat-requests .row{ display:flex; gap:1rem; align-items:center; margin:.25rem 0 .5rem; }
+  #bat-requests table.mini{ width:100%; border-collapse:collapse; font-size:.9em; }
+  #bat-requests table.mini th, #bat-requests table.mini td{ border:1px solid #e5e7eb; padding:.25rem .5rem; }
+
+  @media (max-width:1200px){
+    .app{ grid-template-columns: 1fr }
+    .right{ order:3 }
+  }
+</style>
+</head>
+<body>
+<button id="showLeft">Mostrar filtros</button>
+
+<div class="app" id="appGrid">
+
+  <!-- ESQUERDA -->
+  <section class="card left" id="leftPanel">
+    <div class="head">
+      <h3>Estudo de Caso</h3>
+      <button class="collapse-btn" id="collapseLeft">esconder</button>
+    </div>
+    <div class="grid-row">
+      <select id="caseSelect"></select>
+    </div>
+    <div class="grid-row muted">Execuções disponíveis</div>
+    <div class="scroll" id="runsList" style="padding:10px 12px;"></div>
+    <div class="grid-row muted" style="font-size:12px">
+      Clique em <b class="muted">+</b> para adicionar a execução ao gráfico. Os arquivos são lidos diretamente do repositório (GitHub Pages).
+    </div>
+  </section>
+
+  <!-- CENTRO -->
+  <section class="card center">
+    <div class="plot-top">
+      <div class="grow">
+        <label class="muted" style="display:block;font-size:12px;margin-bottom:4px">Eixo X inferior</label>
+        <select id="xSelect">
+          <option value="period">period (1…96)</option>
+        </select>
+      </div>
+      <button id="btnUpdate" class="btn primary">Atualizar</button>
+      <button id="btnClear" class="btn">Limpar</button>
+      <!-- botão de mostrar/ocultar séries REMOVIDO -->
+      <button class="collapse-btn" id="collapseRightToggle" style="display:none" aria-hidden="true"><span id="rightTglText" class="muted"></span></button>
+    </div>
+    <div class="plot-wrap"><div id="plot"></div></div>
+
+    <!-- abaixo do gráfico -->
+    <div class="plot-below">
+      <section id="file-naming-help" class="subpanel">
+        <details open>
+          <summary><strong>Formação do nome do arquivo</strong></summary>
+          <pre class="help-pre">
+ID###_ALG_DF_P{0|1}_RD{0|1}_G##[_seed]_YYYY-MM-DD_HH-MM-SS.xlsx
+
+ID###: identificador (ex.: ID179)
+ALG:   MOEAD_H, MOEAD_C, nsga2_PY, maco_PY, moead_PY, nspsp_PY, PLIM
+P#:    Preditivo (1) ou Reativo (0)
+RD#:   RD habilitada (1) ou não (0)
+G##:   número de gerações (opcional)
+seed:  identificador de semente (opcional)
+data:  sufixo removido nos arquivos processados
+          </pre>
+          <a href="./vars.html" target="_blank">⇢ ver descrição de todas as variáveis</a>
+        </details>
+      </section>
+
+      <section id="bat-requests" class="subpanel">
+        <details open>
+          <summary><strong>Chegadas de requisições de baterias</strong> (bat_request)</summary>
+          <div class="row">
+            <div>
+              <label for="brScenario"><small>Cenário (ID###):</small></label>
+              <select id="brScenario"></select>
+            </div>
+          </div>
+          <div id="brChart" style="height: 240px; margin-top: .5rem;"></div>
+          <div id="brTable" style="margin-top:.5rem;"></div>
+        </details>
+      </section>
+    </div>
+  </section>
+
+  <!-- DIREITA -->
+  <section class="card right" id="rightPanel">
+    <div class="head">
+      <h3>Séries do gráfico <span class="muted">— marque/desmarque para exibir</span></h3>
+      <div style="display:flex;align-items:center;gap:8px">
+        <div class="legend-help" id="helpTgl">?</div>
+        <!-- botão de esconder painel REMOVIDO -->
+        <button class="collapse-btn" id="collapseRight" style="display:none" aria-hidden="true">esconder</button>
+      </div>
+    </div>
+
+    <!-- controle de escala de fonte do painel -->
+    <div class="grid-row" style="display:flex;align-items:center;gap:.5rem">
+      <label for="uiScale" class="muted" style="min-width:120px"><small>Tamanho do texto</small></label>
+      <input id="uiScale" type="range" min="80" max="120" value="100" step="5" style="width:160px">
+      <span id="uiScaleVal" class="muted">100%</span>
+    </div>
+
+    <div class="help-box" id="helpBox">
+      <div style="font-weight:700;margin-bottom:6px">Formação do nome do arquivo</div>
+      <pre style="white-space:pre-wrap;margin:0">
+ID### (identificação)
+_Algoritmo_DF ∈ { MOEAD_H, MOEAD_C, nsga2_PY, maco_PY, moead_PY, nspso_PY, PLIM }
+_P#: Preditivo-Otimizado (1) ou Reativo-Otimizado (0)
+_RD#: RD habilitada (1) ou não (0)
+_G##: número de gerações (opcional)
+_seed: identificador de seed (opcional; usado no Estudo de Caso 7)
+      </pre>
+    </div>
+    <div class="scroll" id="seriesPanel" style="padding:10px 12px;"></div>
+  </section>
+
+</div>
+
+<script>
+const $ = s => document.querySelector(s);
+const appGrid    = $('#appGrid');
+const leftPanel  = $('#leftPanel');
+const rightPanel = $('#rightPanel');
+const runsList   = $('#runsList');
+const caseSelect = $('#caseSelect');
+const seriesPanel= $('#seriesPanel');
+const xSelect    = $('#xSelect');
+const showLeftBtn= $('#showLeft');
+
+const ACTIVE = [];
+const LOADED = {};
+let INDEX = [];
+let CASES = [];
+
+/* --------- bat_request por cenário --------- */
+const batReqByScenario = new Map(); // Map<ID###, Array(96) {SoE,SoC,Qty}>
+const brScenario = document.getElementById('brScenario');
+const brChartEl  = document.getElementById('brChart');
+const brTableEl  = document.getElementById('brTable');
+
+/* --------- UI escala de fonte do painel direito --------- */
+const uiScale = document.getElementById('uiScale');
+const uiScaleVal = document.getElementById('uiScaleVal');
+if (uiScale && uiScaleVal && rightPanel){
+  const apply = (v)=>{
+    const s = (Number(v)/100).toFixed(2);
+    rightPanel.style.setProperty('--panel-scale', s);
+    uiScaleVal.textContent = `${v}%`;
+  };
+  apply(uiScale.value);
+  uiScale.addEventListener('input', e=> apply(e.target.value));
+}
+
+/* --------- mapeamento pedido --------- */
+const SCENARIO_BY_ID = { "728":1, "330":2, "420":3, "179":4 };
+
+const ALG_LABELS = {
+  "MOEAD_H":"MOEA/D-H",
+  "MOEAD_C":"MOEA/D-C",
+  "NSGA2_PY":"NSGA2 PY",
+  "MACO_PY":"MACO PY",
+  "MOEAD_PY":"MOEAD PY",
+  "NSPSO_PY":"NSPSO PY",
+  "PLIM":"PLIM",
+};
+
+const FILE_RE = /^ID(?<id>\d+)_(?<alg>[A-Za-z0-9]+(?:_[A-Za-z0-9]+)*)_DF_P(?<P>[01])_RD(?<RD>[01])(?:_G(?<G>\d+))?(?:_(?<seed>\d{4,}))?\.xlsx$/i;
+
+function parseFilenameMeta(name){
+  const m = FILE_RE.exec(name.trim());
+  if(!m) return null;
+  const g = m.groups; const id = Number(g.id);
+  const P=+g.P, RD=+g.RD, G=g.G?+g.G:null, seed=g.seed||null;
+  const algKey = g.alg.toUpperCase();
+  const algLabel = ALG_LABELS[algKey] || g.alg.replace(/_/g,'-');
+  return {
+    id, P, RD, G, seed,
+    algKey, algLabel, algRaw:g.alg,
+    runKey:`ID${id}_${g.alg}_P${P}_RD${RD}${G?`_G${G}`:''}${seed?`_${seed}`:''}`,
+    shortId:`ID${id}_${algLabel}_P${P}_RD${RD}${G?` — G${G}`:''}`
+  };
+}
+
+async function loadIndex(){
+  const res = await fetch('index.json');
+  const js = await res.json();
+  INDEX = js.files||[];
+  CASES = Array.from(new Set(INDEX.map(f=>{
+    const parts = (f.relpath||'').split('/');
+    const i = parts.findIndex(p=>/^Estudo de Caso /.test(p));
+    return i>=0? parts[i] : 'Estudo de Caso 1';
+  }))).sort((a,b)=> (+a.replace(/\D+/g,''))-(+b.replace(/\D+/g,'')));
+  caseSelect.innerHTML = CASES.map(c=>`<option>${c}</option>`).join('');
+  hydrateRuns();
+}
+
+function hydrateRuns(){
+  const sel = caseSelect.value||CASES[0];
+  const runs = INDEX.filter(f => (f.relpath||'').includes(`/${sel}/`));
+  runsList.innerHTML = '';
+  runs.forEach(f=>{
+    const meta = parseFilenameMeta(f.name||'');
+    const row = document.createElement('div');
+    row.className='run';
+    if(!meta){
+      row.innerHTML = `
+        <div style="min-width:0">
+          <div class="title">${f.name||'arquivo'}</div>
+          <div class="muted" style="font-size:12px">formato de nome não suportado</div>
+        </div>
+        <div class="actions"><a class="btn small" href="${f.url}" target="_blank">xlsx</a></div>`;
+    }else{
+      const scen = SCENARIO_BY_ID[String(meta.id)] ?? '—';
+      row.innerHTML = `
+        <div style="min-width:0">
+          <div class="title">Cenário ${scen} — ID${meta.id}</div>
+          <div class="chips">
+            <span class="chip">${meta.algLabel}</span>
+            <span class="chip">P${meta.P}</span>
+            <span class="chip">RD${meta.RD}</span>
+            ${meta.G?`<span class="chip">G${meta.G}</span>`:''}
+            ${meta.seed?`<span class="chip">seed ${meta.seed}</span>`:''}
+          </div>
+        </div>
+        <div class="actions">
+          <a class="btn small" href="${f.url}" target="_blank">xlsx</a>
+          <button class="btn small add">+</button>
+        </div>`;
+      row.querySelector('button.add').onclick = ()=> addRun({file:f, meta});
+    }
+    runsList.appendChild(row);
+  });
+}
+
+async function loadXlsx(url){
+  if(LOADED[url]) return LOADED[url];
+  const r = await fetch(url);
+  const ab = await r.arrayBuffer();
+  const wb = XLSX.read(ab,{type:'array'});
+  const sheet = wb.Sheets[wb.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(sheet,{defval:null});
+  const cols = new Set(Object.keys(data[0]||{}));
+  LOADED[url] = {data, cols};
+  return LOADED[url];
+}
+
+function isMonetary(col){
+  return /^cost|^rev/i.test(col) || /_cost$|_total$|_period$|_period_total/i.test(col);
+}
+
+/* --------- exclusões de séries no checkbox --------- */
+const SERIES_EXCLUDE = new Set(['period','Hora','bat_request','swaps_end_queue','swap_denied']);
+
+async function addRun({file, meta}){
+  const {data, cols} = await loadXlsx(file.url);
+  const block = document.createElement('div');
+  block.className='series-block';
+  block.dataset.url = file.url;
+  const filterId = 'flt_'+Math.random().toString(36).slice(2);
+  block.innerHTML = `
+    <div class="series-head">
+      <div class="id" title="${meta.shortId}">${meta.shortId}</div>
+      <input id="${filterId}" type="text" placeholder="filtrar colunas…"/>
+    </div>
+    <div class="series-list"></div>`;
+  seriesPanel.appendChild(block);
+
+  const list = block.querySelector('.series-list');
+  const arr = Array.from(cols).filter(c => !SERIES_EXCLUDE.has(c)); // sem .sort()
+  const defaults = new Set(['E_virtual','e_Resultant','Cost_Period_Total']);
+
+  arr.forEach(col=>{
+    const li = document.createElement('label');
+    li.className='series-item'; li.title=col;
+    li.innerHTML = `<input type="checkbox" data-col="${col}"> <span>${col}</span>`;
+    const cb = li.querySelector('input');
+    if(defaults.has(col)) cb.checked = true;
+    cb.addEventListener('change', draw);
+    list.appendChild(li);
+  });
+
+  block.querySelector('#'+filterId).addEventListener('input', e=>{
+    const q = e.target.value.toLowerCase();
+    list.querySelectorAll('.series-item').forEach(i=>{
+      i.style.display = i.title.toLowerCase().includes(q)?'':'none';
+    });
+  });
+
+  ACTIVE.push({meta, file, data, cols:arr, block});
+
+  // registrar bat_request deste cenário (apenas 1x por ID)
+  registerBatRequest(meta, data);
+  refreshBatRequestUI();
+
+  draw();
+}
+
+/* --------- seleção de séries --------- */
+function selectedSeries(){
+  const groups=[];
+  ACTIVE.forEach(run=>{
+    const cols = Array.from(run.block.querySelectorAll('input[type="checkbox"]:checked')).map(i=>i.dataset.col);
+    if(cols.length) groups.push({run, cols});
+  });
+  return groups;
+}
+
+function hourTicks(){
+  const ticks=[], labs=[];
+  for(let h=0; h<24; h++){
+    ticks.push(1+h*4); labs.push(String(h).padStart(2,'0')+':00');
+  }
+  return {ticks, labs};
+}
+
+function draw(){
+  const traces=[];
+  const xField=xSelect.value||'period';
+  const {ticks,labs}=hourTicks();
+  const first = new Map();
+
+  selectedSeries().forEach(({run, cols})=>{
+    const X = run.data.map(r=> Number(r[xField]));
+    cols.forEach(col=>{
+      const isFirst = !first.has(run.meta.shortId);
+      first.set(run.meta.shortId,true);
+      traces.push({
+        x:X, y: run.data.map(r=> r[col]==null? null : Number(r[col])),
+        mode:'lines',
+        name: col,
+        legendgroup: run.meta.shortId,
+        ...(isFirst? {legendgrouptitle:{text:run.meta.shortId}} : {}),
+        yaxis: isMonetary(col) ? 'y2' : 'y1'
+      });
+    });
+  });
+
+  Plotly.newPlot('plot', traces, {
+    margin:{l:60,r:60,t:10,b:50},
+    xaxis:{ title:'period', tickmode:'linear', dtick:4, zeroline:false, showgrid:true, gridcolor:'#f1f5f9' },
+    xaxis2:{ overlaying:'x', side:'top', anchor:'y', tickvals:ticks, ticktext:labs, tickangle:-45, ticklabelposition:'outside top', showgrid:false, zeroline:false },
+    yaxis:{ title:'kWh / kW / contagem', zeroline:false, gridcolor:'#eef2f7' },
+    yaxis2:{ title:'R$', overlaying:'y', side:'right', zeroline:false, gridcolor:'#eef2f7' },
+    legend:{orientation:'h', x:0, y:-0.2},
+    paper_bgcolor:'#fff', plot_bgcolor:'#fff'
+  }, {displaylogo:false, responsive:true});
+}
+
+function resizePlot(){
+  const el = document.getElementById('plot');
+  if(el){ Plotly.Plots.resize(el); setTimeout(()=>Plotly.Plots.resize(el), 60); }
+}
+
+function syncGridClasses(){
+  appGrid.classList.toggle('left-collapsed',  leftPanel.classList.contains('collapsed'));
+  resizePlot();
+}
+
+/* --------- painel bat_request --------- */
+function parseBatRequest(val){
+  if (val == null) return {SoE:[], SoC:[], Qty:0};
+  if (typeof val === 'object') {
+    const {SoE=[], SoC=[], Qty=0} = val;
+    return {SoE, SoC, Qty: Number(Qty)||0};
+  }
+  let s = String(val).trim();
+  if (!s || s === 'null' || s === 'undefined') return {SoE:[], SoC:[], Qty:0};
+  try {
+    s = s.replaceAll("'", '"');
+    const obj = JSON.parse(s);
+    const {SoE=[], SoC=[], Qty=0} = obj||{};
+    return {SoE, SoC, Qty: Number(Qty)||0};
+  } catch {
+    return {SoE:[], SoC:[], Qty:0};
+  }
+}
+
+function registerBatRequest(meta, rows){
+  const id = `ID${meta.id}`;
+  if (batReqByScenario.has(id)) return; // igual para o cenário
+  const arr = Array(96).fill(0).map(()=>({SoE:[],SoC:[],Qty:0}));
+  for (const r of rows) {
+    const p = Number(r.period)||0;
+    if (p>=1 && p<=96) arr[p-1] = parseBatRequest(r.bat_request);
+  }
+  batReqByScenario.set(id, arr);
+}
+
+function refreshBatRequestUI(){
+  // popular combo
+  if (brScenario && batReqByScenario.size && !brScenario.options.length){
+    for (const id of batReqByScenario.keys()){
+      const opt = document.createElement('option');
+      opt.value = id; opt.textContent = id;
+      brScenario.appendChild(opt);
+    }
+  }
+  const id = brScenario?.value || [...batReqByScenario.keys()][0];
+  if (!id) return;
+
+  const data = batReqByScenario.get(id) || [];
+  const qty = data.map(d => d?.Qty || 0);
+
+  // gráfico de barras com Plotly
+  if (brChartEl){
+    Plotly.newPlot(brChartEl, [{
+      type:'bar', x: Array.from({length:96}, (_,i)=> i+1), y: qty, name:'Qty'
+    }], {
+      margin:{l:40,r:10,t:20,b:40},
+      xaxis:{ title:'period', tickmode:'linear', dtick:4, zeroline:false },
+      yaxis:{ title:'Qty', rangemode:'nonnegative', dtick:1, zeroline:false },
+      showlegend:false
+    }, {displaylogo:false, responsive:true});
+  }
+
+  // tabela compacta (somente períodos com chegadas)
+  if (brTableEl){
+    const rows = [];
+    data.forEach((d, i)=>{
+      if ((d?.Qty||0)>0){
+        rows.push(`<tr>
+          <td>${i+1}</td>
+          <td>${d.Qty}</td>
+          <td>${(d.SoE||[]).join(', ')}</td>
+          <td>${(d.SoC||[]).join(', ')}</td>
+        </tr>`);
+      }
+    });
+    brTableEl.innerHTML = `
+      <table class="mini">
+        <thead><tr><th>period</th><th>Qty</th><th>SoE</th><th>SoC</th></tr></thead>
+        <tbody>${rows.join('') || `<tr><td colspan="4"><em>Nenhuma chegada (Qty=0)</em></td></tr>`}</tbody>
+      </table>`;
+  }
+}
+brScenario?.addEventListener('change', refreshBatRequestUI);
+
+/* --------- Controles --------- */
+document.getElementById('btnUpdate').onclick = draw;
+document.getElementById('btnClear').onclick = ()=>{
+  ACTIVE.splice(0,ACTIVE.length);
+  seriesPanel.innerHTML='';
+  // não limpamos batReqByScenario; assim mantém o combo ao alternar séries
+  draw();
+};
+
+document.getElementById('collapseLeft').onclick = ()=>{
+  leftPanel.classList.add('collapsed');
+  showLeftBtn.style.display='inline-block';
+  syncGridClasses();
+};
+showLeftBtn.onclick = ()=>{
+  leftPanel.classList.remove('collapsed');
+  showLeftBtn.style.display='none';
+  syncGridClasses();
+};
+
+/* desativa quaisquer toggles antigos do painel direito */
+document.getElementById('collapseRight').onclick = (e)=> e.preventDefault();
+document.getElementById('collapseRightToggle').onclick = (e)=> e.preventDefault();
+
+document.getElementById('helpTgl').onclick = ()=> document.getElementById('helpBox').classList.toggle('show');
+
+caseSelect.onchange = hydrateRuns;
+window.addEventListener('resize', ()=>{ resizePlot(); if (brChartEl) Plotly.Plots.resize(brChartEl); });
+
+loadIndex().catch(err=>{
+  console.error(err);
+  runsList.innerHTML = `<div class="muted">Erro ao carregar o índice.</div>`;
+});
+</script>
+</body>
+</html>

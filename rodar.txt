@@ -1,0 +1,5 @@
+rm -f package-lock.json
+npm install   # vai gerar um novo package-lock.json compatível
+git add package-lock.json package.json
+git commit -m "chore: regenerate lockfile"
+git push

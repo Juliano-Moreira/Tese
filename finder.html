@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Selecionar arquivo por filtros</title>
+<style>
+  :root { --sidebar-w: 320px; }
+  body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Arial; }
+  .layout { display:grid; grid-template-columns: var(--sidebar-w) 1fr; min-height:100vh; }
+  .sidebar { padding:14px; border-right:1px solid #e5e7eb; background:#fafafa; }
+  .sidebar h1 { margin:0 0 12px; font-size:18px; }
+  .field { margin-bottom:10px; }
+  .field label { display:block; font-size:12px; color:#374151; margin-bottom:4px; }
+  .field select, .field button { width:100%; padding:8px; font-size:14px; border:1px solid #d1d5db; border-radius:6px; background:#fff; }
+  .row { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .chip { margin-top:8px; font-size:12px; background:#eef2ff; border:1px solid #c7d2fe; color:#111827;
+          border-radius:6px; padding:8px; word-break:break-all; display:none; }
+  .ok   { background:#ecfdf5; border-color:#a7f3d0; }
+  .bad  { background:#fef2f2; border-color:#fecaca; }
+  .content { padding:18px; }
+  .muted { color:#6b7280; font-size:12px; }
+  @media (max-width:900px){ .layout{ grid-template-columns:1fr; } .sidebar{ border-right:none; border-bottom:1px solid #e5e7eb; } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <aside class="sidebar">
+    <h1>Selecionar arquivo</h1>
+
+    <div class="field">
+      <label for="caseSel">Estudo de Caso</label>
+      <select id="caseSel"></select>
+    </div>
+
+    <div class="field">
+      <label for="scnSel">Cenário (BSS)</label>
+      <select id="scnSel">
+        <option value="1">1 — BSS 728</option>
+        <option value="2">2 — BSS 330</option>
+        <option value="3">3 — BSS 420</option>
+        <option value="4">4 — BSS 179</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label for="algSel">Algoritmo</label>
+      <select id="algSel">
+        <option>MOEAD_H</option>
+        <option>MOEAD_C</option>
+        <option>moead_PY</option>
+        <option>maco_PY</option>
+        <option>nspso_PY</option>
+        <option>nsga2_PY</option>
+        <option>PLIM</option>
+      </select>
+    </div>
+
+    <div class="field row">
+      <div>
+        <label for="pSel">P (modo)</label>
+        <select id="pSel">
+          <option value="1">P1 — Preditivo</option>
+          <option value="0">P0 — Reativo</option>
+        </select>
+      </div>
+      <div>
+        <label for="rdSel">RD</label>
+        <select id="rdSel">
+          <option value="1">RD1 — habilitado</option>
+          <option value="0">RD0 — desabilitado</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="field">
+      <button id="btnFind">Procurar arquivo</button>
+      <div id="matchBox" class="chip"></div>
+    </div>
+
+    <div class="field">
+      <button id="btnOpen" disabled>Abrir no viewer</button>
+    </div>
+
+    <div class="muted">
+      DF é fixo no nome. Se houver múltiplos, o mais recente (pelo timestamp no nome) é escolhido.
+    </div>
+  </aside>
+
+  <main class="content">
+    <h2>Como funciona</h2>
+    <p>
+      Este seletor lê o <code>index.json</code> do repositório, filtra por
+      <b>Estudo de Caso → Cenário (BSS) → Algoritmo → P → RD</b> e encontra o arquivo
+      cujo nome segue <code>ID{BSS}_{ALG}_DF_P{P}_RD{RD}_*.xlsx</code> dentro de
+      <code>Resultados/Estudo de Caso X/Resultado Final</code>.
+    </p>
+    <p>
+      Ao clicar <b>Abrir no viewer</b>, você é redirecionado ao seu
+      <code>index.html</code> com a querystring <code>?files=...</code>.
+      Seus links antigos continuam válidos.
+    </p>
+  </main>
+</div>
+
+<script>
+(async function () {
+  // Ajuste aqui se seu index.json estiver em outro lugar
+  const INDEX_JSON_URL = './index.json';
+  const VIEWER_URL     = './index.html'; // para onde enviar ?files=...
+
+  const res = await fetch(INDEX_JSON_URL);
+  if (!res.ok) {
+    alert('Não consegui carregar index.json. Verifique o caminho/branch do GitHub Pages.');
+    return;
+  }
+  const idx = await res.json(); // { files: [{name, folder, relpath, url, ...}, ...] }
+
+  // Descobre estudos a partir do caminho da pasta
+  const caseSet = new Set(
+    idx.files.map(f => {
+      const m = f.folder && f.folder.match(/Resultados\/Estudo de Caso (\d+)\/Resultado Final/i);
+      return m ? `Estudo de Caso ${m[1]}` : null;
+    }).filter(Boolean)
+  );
+  const cases = Array.from(caseSet).sort((a,b)=>{
+    const na = parseInt(a.replace(/\D+/g,''))||0;
+    const nb = parseInt(b.replace(/\D+/g,''))||0;
+    return na-nb;
+  });
+
+  // Preenche select
+  const caseSel = document.getElementById('caseSel');
+  cases.forEach(c=>{
+    const opt = document.createElement('option');
+    opt.value = c; opt.textContent = c;
+    caseSel.appendChild(opt);
+  });
+
+  const BSS_OF = { '1':728, '2':330, '3':420, '4':179 };
+
+  function candidates(caseLabel, scn, alg, p, rd){
+    const n = (caseLabel.match(/\d+/)||[])[0];
+    if(!n) return [];
+    const folderRe = new RegExp(`Resultados\\/Estudo de Caso ${n}\\/Resultado Final`,'i');
+    const bss  = BSS_OF[String(scn)];
+    const pat  = new RegExp(`^ID${bss}_${alg}_DF_P${p}_RD${rd}_.+\\.xlsx$`, 'i');
+    return idx.files.filter(f => folderRe.test(f.folder||'') && pat.test(f.name||''));
+  }
+
+  function parseTs(name){
+    const m = name.match(/_(\d{4}-\d{2}-\d{2})_(\d{2}-\d{2}-\d{2})\.xlsx$/i);
+    if(!m) return 0;
+    return Date.parse(m[1]+'T'+m[2].replace(/-/g,':')+'Z') || 0;
+  }
+  function pickLatest(files){
+    return files
+      .map(f=>({f,t:parseTs(f.name)}))
+      .sort((a,b)=>b.t-a.t)[0]?.f || null;
+  }
+
+  const scnSel = document.getElementById('scnSel');
+  const algSel = document.getElementById('algSel');
+  const pSel   = document.getElementById('pSel');
+  const rdSel  = document.getElementById('rdSel');
+  const btnFind= document.getElementById('btnFind');
+  const btnOpen= document.getElementById('btnOpen');
+  const box    = document.getElementById('matchBox');
+
+  let chosen = null;
+
+  function show(msg, ok){
+    box.style.display = 'block';
+    box.classList.remove('ok','bad');
+    box.classList.add(ok?'ok':'bad');
+    box.textContent = msg;
+    btnOpen.disabled = !ok;
+  }
+
+  btnFind.addEventListener('click', ()=>{
+    const c = caseSel.value;
+    const s = scnSel.value;
+    const a = algSel.value;
+    const p = pSel.value;
+    const r = rdSel.value;
+
+    const list = candidates(c,s,a,p,r);
+    if(!list.length){
+      chosen = null;
+      show('Nenhum arquivo encontrado para a combinação selecionada.', false);
+      return;
+    }
+    chosen = list.length>1 ? pickLatest(list) : list[0];
+    show((list.length>1?`Selecionado (mais recente de ${list.length}): `:'Selecionado: ') + chosen.name, true);
+  });
+
+  btnOpen.addEventListener('click', ()=>{
+    if(!chosen) return;
+    const u = new URL(VIEWER_URL, window.location.href);
+    u.searchParams.set('files', chosen.name);
+    // Se quiser já abrir com colunas padrão:
+    // u.searchParams.set('x','period');
+    // u.searchParams.set('y','E_virtual|Cost_Period');
+    window.location.href = u.toString();
+  });
+})();
+</script>
+</body>
+</html>

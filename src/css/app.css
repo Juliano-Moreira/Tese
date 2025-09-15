@@ -1,0 +1,287 @@
+:root{
+    --bg:#f7f7fb;
+    --panel:#ffffff;
+    --muted:#6b7280;
+    --text:#1f2937;
+    --accent:#2563eb;
+    --border:#e5e7eb;
+    --chip:#eef2ff;
+  }
+  html,body{height:100%}
+  body{
+    margin:0; background:var(--bg); color:var(--text);
+    font:14px/1.35 "Inter", system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+  .app{
+    display:grid;
+    grid-template-columns: 320px 1fr 360px;
+    gap:12px; padding:12px;
+    height:100%;
+    box-sizing:border-box;
+  }
+  .app.left-collapsed{ grid-template-columns: 0 1fr 360px; }
+
+  .card{
+    background:var(--panel); border:1px solid var(--border); border-radius:10px;
+    box-shadow:0 1px 2px rgba(0,0,0,.04);
+    overflow:hidden; display:flex; flex-direction:column;
+    min-height:0;
+  }
+  .card .head{
+    padding:10px 12px; border-bottom:1px solid var(--border);
+    display:flex; align-items:center; justify-content:space-between; gap:10px;
+  }
+  .card .head h3{margin:0; font-size:15px}
+  .btn{
+    background:#fff; border:1px solid var(--border); border-radius:8px;
+    padding:6px 10px; cursor:pointer; color:var(--text);
+  }
+  .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent) }
+  .btn.small{ padding:4px 8px; font-size:12px }
+  .btn.ghost{ background:transparent; color:var(--accent); border-color:var(--accent) }
+  .muted{ color:var(--muted) }
+  .scroll{ overflow:auto }
+  .left, .right{ min-width:0 }
+  .left.collapsed{ display:none }
+
+  .grid-row{ padding:10px 12px; border-bottom:1px solid var(--border) }
+  .grid-row:last-child{ border-bottom:none }
+  select, input[type="text"]{
+    width:100%; padding:8px 10px; border:1px solid var(--border);
+    border-radius:8px; background:#fff; color:#1f2937;
+  }
+
+  /* lista de execuções */
+  .run{
+    display:flex; align-items:center; justify-content:space-between; gap:8px;
+    padding:10px; border:1px solid var(--border); border-radius:8px; background:#fff;
+  }
+  .run + .run{ margin-top:8px }
+  .run .title{ font-weight:700; font-size:15px }
+  .chips{ display:flex; flex-wrap:wrap; gap:6px; margin-top:4px }
+  .chip{
+    background:var(--chip); border:1px solid #c7d2fe; color:#374151;
+    padding:2px 6px; border-radius:999px; font-size:12px
+  }
+  .run .actions{ display:flex; gap:6px }
+  .add{ background:#10b981; color:#fff; border-color:#10b981 }
+
+  /* painéis esquerdo/direito com escala */
+  .left, .right{ --panel-scale: .8; font-size: calc(14px * var(--panel-scale)); }
+
+  .series-block{ border-top:1px dashed var(--border); padding-top:10px; margin-top:10px }
+  .series-head{
+    display:grid; grid-template-columns: 1fr 140px; gap:8px; align-items:center; margin-bottom:8px;
+  }
+  .series-head .id{ font-weight:700; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:12px }
+
+  .series-list{
+    display:grid; grid-template-columns: repeat(2, minmax(0,1fr));
+    gap:6px 14px; max-height:240px; overflow:auto; padding-right:6px
+  }
+  .series-item{ display:flex; align-items:center; gap:8px; white-space:nowrap }
+  .series-item input{ transform:translateY(1px) }
+  .help-box{ display:none; padding:10px; background:#f9fafb; border:1px solid var(--border); border-radius:8px; margin-top:8px }
+  .help-box.show{ display:block }
+  .collapse-btn{ border:none; background:transparent; color:var(--muted); cursor:pointer; font-size:12px }
+
+  #showLeft{ display:none }
+
+  #plot{ width:100%; height:100% }
+
+  /* centro com rolagem */
+  .plot-top{
+    display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--border)
+  }
+  .center-scroll{ display:flex; flex-direction:column; gap:10px; padding:10px 12px; min-height:0; overflow:auto }
+  /*.plot-wrap{ background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px }*/
+  .plot-wrap{
+    display:flex;                 /* empilha gráfico + legenda */
+    flex-direction:column;
+  }
+  .plot-below{ display:flex; flex-direction:column; gap:10px; }
+  .subpanel{ border:1px solid var(--border); border-radius:10px; background:#fff; padding:10px 12px; }
+  .subpanel details>summary{ cursor:pointer }
+  .help-pre{ white-space:pre-wrap; font-size:.9em; margin:.5rem 0 0 }
+  #bat-requests .row{ display:flex; gap:1rem; align-items:center; margin:.25rem 0 .5rem; }
+  #bat-requests table.mini{ width:100%; border-collapse:collapse; font-size:.9em; }
+  #bat-requests table.mini th, #bat-requests table.mini td{ border:1px solid #e5e7eb; padding:.25rem .5rem; }
+
+  @media (max-width:1200px){
+    .app{ grid-template-columns: 1fr }
+    .right{ order:3 }
+  }
+
+	/* painel direito realmente colapsa */
+	.app.right-collapsed{ grid-template-columns: 320px 1fr 0; }
+	.right.collapsed{ display:none }
+
+	/* fontes menores/escala no painel ESQUERDO */
+	.left .run { gap:6px; padding:8px; }
+	.left .run .title{ font-size: calc(13px * var(--panel-scale)); }
+	.left .chips{ gap:4px }
+	.left .chip{ font-size: calc(10px * var(--panel-scale)); padding: 1px 6px; }
+	.left .btn.small{ font-size: calc(11px * var(--panel-scale)); padding: 3px 7px; }
+
+  /* barra de âncoras (no painel direito) */
+  .anchor-bar{
+    padding:8px 12px;
+    border-bottom:1px solid var(--border);
+    display:flex; flex-wrap:wrap;
+    gap:8px 10px;
+    align-items:flex-start;
+  }
+  .anchor-bar h3{
+    margin:0 0 6px 0;
+    font-size:13px; font-weight:700;
+    flex-basis:100%;
+  }
+  .anchor-bar a{
+    font-size:12px; color:var(--accent); text-decoration:none;
+    padding:2px 6px; border:1px solid #c7d2fe; background:#eef2ff; border-radius:6px;
+  }
+
+  #exec-summary table.mini th, #exec-summary table.mini td{ padding:.35rem .5rem; }
+  #exec-summary .idchips{ display:flex; flex-wrap:wrap; gap:6px }
+  #exec-summary .idchips .chip{ font-size:11px; }
+  #exec-summary table.mini th sub{ font-size:10px; }
+  
+  /* container com rolagem horizontal quando precisar */
+  #exec-summary #consTable{ overflow:auto }
+  
+  /* tabela mais compacta e colunas numéricas alinhadas à direita */
+  #exec-summary table.mini{
+    width:max-content;            /* encolhe ao conteúdo e permite scroll */
+    font-size:12px;               /* base desktop */
+  }
+  #exec-summary table.mini th,
+  #exec-summary table.mini td{ padding:.30rem .45rem }
+  #exec-summary table.mini td:nth-child(n+2){ text-align:right }  /* tudo após “Execução” */
+  
+  /* chips menores dentro da identificação */
+  #exec-summary .idchips .chip{ font-size:10.5px; padding:1px 6px }
+  
+  /* responsividade */
+  @media (max-width:1024px){
+    #exec-summary table.mini{ font-size:11px }
+    #exec-summary .idchips .chip{ font-size:10px; padding:1px 5px }
+  }
+  @media (max-width:640px){
+    #exec-summary table.mini{ font-size:10px }
+    #exec-summary table.mini th, #exec-summary table.mini td{ padding:.28rem .4rem }
+    #exec-summary .idchips{ gap:4px }
+    #exec-summary .idchips .chip{ font-size:9.5px; padding:1px 4px }
+  }
+
+
+  /* --- base: ocultar no desktop, mostrar no mobile --- */
+  .mobile-only{ display:none }
+
+  /* --- camada escura p/ drawers --- */
+  #scrim{
+    position:fixed; inset:0; background:rgba(0,0,0,.25);
+    backdrop-filter:saturate(90%) blur(1px);
+    display:none; z-index:20;
+  }
+  
+  /* -------- Accordions (Consolidados / Chegadas): ícone grande + dica -------- */
+  .subpanel details summary{
+    position: relative;
+    list-style: none;
+    cursor: pointer;
+    user-select: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 120px 12px 40px;     /* espaço p/ seta e p/ dica à direita */
+    border-bottom: 1px solid var(--border);
+    transition: background .15s ease;
+  }
+  .subpanel details summary:hover{ background:#f8fafc; }
+  
+  /* Chevron grande à esquerda */
+  .subpanel details summary::before{
+    content:"▸";
+    position:absolute; left:12px; top:50%; transform:translateY(-50%);
+    font-size:22px; font-weight:700; color:var(--accent);
+    transition: transform .15s ease;
+  }
+  .subpanel details[open] summary::before{ content:"▾"; }
+  
+  /* Dica à direita que alterna com o estado */
+  .subpanel details summary::after{
+    content:"mostrar";                           /* quando está fechado */
+    position:absolute; right:12px; top:50%; transform:translateY(-50%);
+    font-size:11.5px; color:var(--muted);
+  }
+  .subpanel details[open] summary::after{ content:"minimizar"; }
+  
+  /* No mobile escondemos a dica para economizar espaço */
+  @media (max-width:640px){
+    .subpanel details summary{ padding-right: 40px; }
+    .subpanel details summary::after{ display:none; }
+  }
+
+  
+  
+
+  /* --- MOBILE: drawers off-canvas --- */
+  @media (max-width:1024px){
+    .app{ grid-template-columns: 1fr }
+    .mobile-only{ display:inline-flex }
+
+    /* painel esquerdo como drawer */
+    .left{
+      position:fixed; left:0; top:0; bottom:0; width:86vw; max-width:420px;
+      z-index:30; transform:translateX(-100%);
+      transition:transform .25s ease; box-shadow:2px 0 12px rgba(0,0,0,.15);
+    }
+    .left.open{ transform:translateX(0) }
+
+    /* painel direito como drawer */
+    .right{
+      position:fixed; right:0; top:0; bottom:0; width:86vw; max-width:420px;
+      z-index:30; transform:translateX(100%);
+      transition:transform .25s ease; box-shadow:-2px 0 12px rgba(0,0,0,.15);
+    }
+    .right.open{ transform:translateX(0) }
+
+    /* MANTER botão "esconder" visível no mobile */
+    .right .head .collapse-btn{ display:inline-block }
+    /*#plot{ height:60vh !important }*/
+	#plot{ min-height:60vh !important; }  /* cresce se precisar */
+  }
+  
+  /* botão que só aparece no DESKTOP */
+  .desktop-only{ display:inline-flex }
+  @media (max-width:1024px){
+    .desktop-only{ display:none !important; } /* some no mobile */
+  }
+  
+  /* botãzinho de fechar (X) no cabeçalho do painel direito */
+  .icon-btn{
+    background:#fff; border:1px solid var(--border); border-radius:6px;
+    width:28px; height:28px; display:inline-flex; align-items:center; justify-content:center;
+    font-size:16px; color:var(--muted); cursor:pointer;
+  }
+  .icon-btn:hover{ background:#f3f4f6 }
+  
+  /* modal simples com iframe (usa o mesmo scrim já existente) */
+  #varsModal{
+    position:fixed; inset:4%; background:#fff; border:1px solid var(--border);
+    border-radius:12px; box-shadow:0 20px 60px rgba(0,0,0,.25);
+    display:none; z-index:40; overflow:hidden;
+  }
+  #varsModal.open{ display:flex }
+  #varsModal .box{ display:flex; flex-direction:column; width:100%; height:100% }
+  #varsModal .bar{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px; padding:8px 12px; border-bottom:1px solid var(--border);
+    background:#f8fafc;
+  }
+  #varsModal .bar h4{ margin:0; font-size:14px }
+  #varsModal .icon-btn{ width:30px; height:30px }            /* aproveita classe existente */
+  #varsFrame{ flex:1; width:100%; height:100%; border:0 }
+  @media (max-width:1024px){
+    #varsModal{ inset:6% 3% }                                /* um pouco mais alto no mobile */
+  }

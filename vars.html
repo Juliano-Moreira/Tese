@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Referência de Variáveis e Parâmetros — BSS</title>
+<style>
+  :root{ --text:#111827; --muted:#6b7280; --border:#e5e7eb; --bg:#fafafa; --panel:#fff; --accent:#2563eb; }
+  html,body{margin:0; padding:0; background:var(--bg); color:var(--text); font:15px/1.5 system-ui,Segoe UI,Roboto,Arial,sans-serif;}
+  .wrap{max-width:1000px; margin:28px auto; padding:0 16px;}
+  h1{margin:.2rem 0 1rem; font-size:26px}
+  h2{margin:1.5rem 0 .5rem; font-size:20px}
+  h3{margin:1.25rem 0 .5rem; font-size:17px}
+  .note{border-left:4px solid #93c5fd; background:#eff6ff; padding:.75rem .9rem; margin:1rem 0; color:#0f172a}
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:14px 16px; margin:12px 0}
+  .toc a{color:var(--accent); text-decoration:none}
+  .toc ul{margin:.25rem 0 .5rem 1.2rem}
+  table{width:100%; border-collapse:collapse; font-size:14px}
+  th, td{border:1px solid var(--border); padding:.5rem .6rem; vertical-align:top}
+  th{background:#f8fafc; text-align:left}
+  code{background:#f3f4f6; padding:0 .25rem; border-radius:.25rem}
+  .muted{color:var(--muted)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .small{font-size:13px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Referência de Variáveis e Parâmetros — BSS</h1>
+
+  <div class="card toc">
+    <strong>Sumário</strong>
+    <ul>
+      <li><a href="#arquivos">Padrão de nomes de arquivo</a></li>
+      <li><a href="#tempo-tarifas">Tempo & Tarifas</a></li>
+      <li><a href="#pv">Fotovoltaico (FV)</a></li>
+      <li><a href="#fluxos">Fluxos de energia (sistema)</a></li>
+      <li><a href="#custos">Custos & Receitas</a></li>
+      <li><a href="#demanda">Demanda & Status</a></li>
+      <li><a href="#controle">Controle & Previsão</a></li>
+      <li><a href="#slots">Detalhes por Slot (0…12)</a></li>
+    </ul>
+  </div>
+
+  <div id="arquivos" class="card">
+    <h2>Padrão de nomes de arquivo</h2>
+    <div class="mono small">
+      ID###_ALG_DF_P{0|1}_RD{0|1}_G##[_RASP][_seed].xlsx
+    </div>
+    <ul class="small">
+      <li><b>ID###</b>: identificador do cenário (ex.: <code>ID179</code>)</li>
+      <li><b>ALG</b>: algoritmo (ex.: <code>MOEAD_H</code>, <code>MOEAD_C</code>, <code>nsga2_PY</code>, ...)</li>
+      <li><b>P#</b>: Preditivo (1) ou Reativo (0)</li>
+      <li><b>RD#</b>: Resposta da Distribuidora habilitada (1) ou não (0)</li>
+      <li><b>G##</b>: número de gerações (opcional)</li>
+	  <li><b>RASP</b>: sufixo opcional indicando execução no Raspberry&nbsp;Pi.</li>
+      <li><b>seed</b>: semente (opcional)</li>
+    </ul>
+  </div>
+
+  <div id="tempo-tarifas" class="card">
+    <h2>Tempo & Tarifas</h2>
+    <table>
+      <thead><tr><th>Variável (coluna)</th><th>Descrição</th><th>Unidade</th></tr></thead>
+      <tbody>
+        <tr><td><code>period</code></td><td>Índice do intervalo no dia (1…96)</td><td>–</td></tr>
+        <tr><td><code>Hora</code></td><td>Hora do período no formato HH:MM</td><td>–</td></tr>
+        <tr><td><code>T_Buy</code></td><td>Tarifa de compra da rede no período</td><td>R$/kWh</td></tr>
+        <tr><td><code>T_Sell</code></td><td>Tarifa de venda/injeção na rede no período</td><td>R$/kWh</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="pv" class="card">
+    <h2>Fotovoltaico (FV)</h2>
+    <table>
+      <thead><tr><th>Variável</th><th>Descrição</th><th>Unidade</th></tr></thead>
+      <tbody>
+        <tr><td><code>E_PV</code></td><td>Energia FV produzida no período</td><td>kWh</td></tr>
+        <tr><td><code>e_PV_used</code></td><td>Energia FV usada internamente</td><td>kWh</td></tr>
+        <tr><td><code>e_PV_inj</code></td><td>Energia FV injetada na rede</td><td>kWh</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="fluxos" class="card">
+    <h2>Fluxos de energia (sistema)</h2>
+    <table>
+      <thead><tr><th>Variável</th><th>Descrição</th><th>Unidade</th></tr></thead>
+      <tbody>
+        <tr><td><code>e_grid</code></td><td>Energia consumida da rede</td><td>kWh</td></tr>
+        <tr><td><code>e_inj</code></td><td>Energia injetada na rede (no arquivo, sinal invertido)</td><td>kWh</td></tr>
+        <tr><td><code>e_BSS_Charge</code></td><td>Energia total para carregar baterias (<code>grid + solar</code>)</td><td>kWh</td></tr>
+        <tr><td><code>e_BSS_Charge_solar</code></td><td>Parcela FV usada para carga das baterias</td><td>kWh</td></tr>
+        <tr><td><code>e_BSS_Charge_grid</code></td><td>Parcela da rede usada para carga das baterias</td><td>kWh</td></tr>
+        <tr><td><code>e_BSS_Discharge</code></td><td>Energia descarregada pelas baterias (no arquivo, sinal invertido)</td><td>kWh</td></tr>
+        <tr><td><code>e_swap</code></td><td>Energia líquida associada às trocas de bateria (no arquivo, sinal invertido)</td><td>kWh</td></tr>
+        <tr><td><code>e_Resultant</code></td><td>Energia líquida resultante no período</td><td>kWh</td></tr>
+        <tr><td><code>E_virtual</code></td><td>Energia “virtual” acumulada (BVE) no período</td><td>kWh</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="custos" class="card">
+    <h2>Custos & Receitas</h2>
+    <table>
+      <thead><tr><th>Variável</th><th>Descrição</th><th>Unidade</th></tr></thead>
+      <tbody>
+        <tr><td><code>Cost_Grid</code></td><td>Custo de energia comprada da rede no período</td><td>R$</td></tr>
+        <tr><td><code>Cost_Charge_Solar</code></td><td>Custo/encargo associado à carga via solar</td><td>R$</td></tr>
+        <tr><td><code>Cost_Charge_Bats</code></td><td>Custo de carga das baterias (parcela de rede/operacional)</td><td>R$</td></tr>
+        <tr><td><code>Rev_Inj</code></td><td>Receita pela injeção na rede</td><td>R$</td></tr>
+        <tr><td><code>Rev_Swap_Done</code></td><td>Receita por trocas realizadas com sucesso</td><td>R$</td></tr>
+        <tr><td><code>Cost_Swap_Penalty</code></td><td>Penalidade por trocas negadas</td><td>R$</td></tr>
+        <tr><td><code>Cost_Period</code></td><td>Custo do período</td><td>R$</td></tr>
+        <tr><td><code>Cost_Period_Total</code></td><td>Custo acumulado até o período</td><td>R$</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="demanda" class="card">
+    <h2>Demanda & Status</h2>
+    <table>
+      <thead><tr><th>Variável</th><th>Descrição</th><th>Tipo</th></tr></thead>
+      <tbody>
+        <tr><td><code>q_arrived</code></td><td>Chegadas acumuladas à fila de trocas</td><td>contagem</td></tr>
+        <tr><td><code>bat_request</code></td><td>Objeto JSON com requisições no período: <span class="mono">{SoE:[], SoC:[], Qty:n}</span></td><td>estrutura</td></tr>
+        <tr><td><code>swap_occurred</code></td><td>Indicador de ocorrência de troca</td><td>binária</td></tr>
+        <tr><td><code>swap_penalty_occurred</code></td><td>Indicador de penalidade por troca negada</td><td>binária</td></tr>
+        <tr><td><code>swaps_end_queue</code></td><td>Tamanho da fila no final do período</td><td>contagem</td></tr>
+        <tr><td><code>swap_denied</code></td><td>Trocas negadas no período</td><td>contagem</td></tr>
+        <tr><td><code>cumulative_swaps</code></td><td>Trocas acumuladas até o período</td><td>contagem</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="controle" class="card">
+    <h2>Controle & Previsão</h2>
+    <table>
+      <thead><tr><th>Variável</th><th>Descrição</th><th>Tipo</th></tr></thead>
+      <tbody>
+        <tr><td><code>prediction</code></td><td>Previsão de demanda ou variável auxiliar do controlador</td><td>cont.</td></tr>
+        <tr><td><code>pred_enable_charger</code></td><td>Habilitação prevista do carregador</td><td>binária</td></tr>
+        <tr><td><code>enable_charge</code></td><td>Habilitação efetiva do carregamento</td><td>binária</td></tr>
+        <tr><td><code>min_full_decision</code></td><td>Alvo mínimo de baterias cheias</td><td>cont./inteira</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div id="slots" class="card">
+    <h2>Detalhes por Slot (0…12)</h2>
+    <p class="small muted">Para cada <code>i ∈ {0,…,12}</code> usamos o sufixo <code>_i</code>. A ordem nos arquivos segue: estado → decisão → ações → resultado.</p>
+    <table>
+      <thead><tr><th>Padrão</th><th>Descrição</th><th>Unidade/Tipo</th></tr></thead>
+      <tbody>
+        <tr><td><code>E_i</code></td><td>Energia na bateria <em>i</em> ao final do período</td><td>kWh</td></tr>
+        <tr><td><code>E_SoC_i</code></td><td>Estado de carga (State of Charge) da bateria <em>i</em></td><td>%</td></tr>
+        <tr><td><code>full_battery_i</code></td><td>Bateria <em>i</em> totalmente carregada</td><td>binária</td></tr>
+        <tr><td><code>charge_decision_i</code></td><td>Decisão de carregar a bateria <em>i</em></td><td>binária</td></tr>
+        <tr><td><code>discharge_decision_i</code></td><td>Decisão de descarregar a bateria <em>i</em></td><td>binária</td></tr>
+        <tr><td><code>P_charge_i</code></td><td>Potência de carga aplicada à bateria <em>i</em></td><td>kW</td></tr>
+        <tr><td><code>P_charge_solar_i</code></td><td>Parcela de potência solar usada para carga da bateria <em>i</em></td><td>kW</td></tr>
+        <tr><td><code>P_charge_grid_i</code></td><td>Parcela de potência da rede usada para carga da bateria <em>i</em></td><td>kW</td></tr>
+        <tr><td><code>P_discharge_i</code></td><td>Potência de descarga da bateria <em>i</em></td><td>kW</td></tr>
+        <tr><td><code>P_discharge_total_i</code></td><td>Potência total de descarga observada para a bateria <em>i</em> (após agregações)</td><td>kW</td></tr>
+        <tr><td><code>P_swap_i</code></td><td>Potência equivalente associada à troca da bateria <em>i</em></td><td>kW</td></tr>
+        <tr><td><code>swap_done_i</code></td><td>Troca realizada para a bateria <em>i</em></td><td>binária</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>
